@@ -15,9 +15,11 @@ import plotly.express as px
 st.set_page_config(layout="wide")
 
 # Wczytanie zapisanego modelu (model przewidujący czas półmaratonu)
+# Wczytanie zapisanego modelu
 time_5km_model = load_model('Czas_na_5km_model')
 time_10km_model = load_model('Czas_na_10km_model')
 time_15km_model = load_model('Czas_na_15km_model')
+
 
 # Wczytanie danych
 df_2023 = pd.read_csv('halfmarathon_wroclaw_2023__final.csv', sep=';')
@@ -106,6 +108,8 @@ df_2024['Płeć'] = label_encoder.transform(df_2024['Płeć'])
 
 combined_df = pd.concat([df_2023, df_2024], ignore_index=True)
 
+combined_df
+
 # Zdefiniowanie kolumn numerycznych
 numeric_columns_combined = ['Wiek', 'Czas_półmaratonu', 'Czas_na_5km', 'Czas_na_10km', 'Czas_na_15km']
 
@@ -140,42 +144,6 @@ def format_pace(pace):
     seconds = int((pace - minutes) * 60)  # Reszta w sekundach
     return f"{minutes:02d}:{seconds:02d}"
 
-def predict_halfmarathon_time(input_data, distance_model="5km"):
-    input_data = input_data.copy()
-    
-    # Dodanie brakujących kolumn, które mogą być wymagane przez model (np. 'Czas_na_5km', 'Czas_na_10km', 'Czas_na_15km')
-    if 'Czas_na_5km' not in input_data.columns:
-        input_data['Czas_na_5km'] = [None]
-    if 'Czas_na_10km' not in input_data.columns:
-        input_data['Czas_na_10km'] = [None]
-    if 'Czas_na_15km' not in input_data.columns:
-        input_data['Czas_na_15km'] = [None]
-
-    
-
-    # Wybór odpowiedniego modelu na podstawie argumentu distance_model
-    if distance_model == "5km":
-        model_to_use = time_5km_model
-    elif distance_model == "10km":
-        model_to_use = time_10km_model
-    elif distance_model == "15km":
-        model_to_use = time_15km_model
-    else:
-        raise ValueError("Niepoprawny model dystansu. Wybierz jeden z: '5km', '10km', '15km'")
-
-    # Przewidywanie czasu półmaratonu na podstawie wybranego modelu
-    time_halfmarathon_pred = model_to_use.predict(input_data)
-    input_data['Czas_półmaratonu_pred'] = time_halfmarathon_pred[0]
-
-    # Obliczanie tempa i prędkości
-    pace_halfmarathon, speed_halfmarathon = calculate_pace_and_speed(time_halfmarathon_pred[0], 21.0975)  # 21.0975 km to długość półmaratonu
-
-    # Dodanie tempa i prędkości do danych
-    input_data['Pace_halfmarathon'] = format_pace(pace_halfmarathon)  # Formatowanie tempa
-    input_data['Speed_halfmarathon'] = round(speed_halfmarathon, 2)  # Zaokrąglanie prędkości do dwóch miejsc po przecinku
-
-    return input_data
-
 
 # Interfejs użytkownika
 st.title("Przewidywanie czasu półmaratonu")
@@ -186,7 +154,7 @@ age = st.number_input("Wiek", min_value=10, max_value=100, value=30)
 gender = st.radio("Płeć", options=["Mężczyzna", "Kobieta"])
 
 # Wybór dystansu
-distance_choice = st.selectbox("Wybierz dystans:", ["5 km", "10 km", "15 km"])
+distance_model = st.selectbox("Wybierz dystans", ["5 km", "10 km", "15 km"])
 
 # Zmienne do przechowywania danych czasowych
 time_5km = None
@@ -194,19 +162,55 @@ time_10km = None
 time_15km = None
 
 # Dostosowanie wejścia w zależności od wybranego dystansu
-if distance_choice == "5 km":
+if distance_model == "5 km":
     time_str = st.text_input("Podaj czas na 5 km (format HH:MM:SS)", value="00:25:00")
     time_5km = time_to_seconds(time_str)
-if distance_choice == "10 km":
-    time_str = st.text_input("Podaj czas na 10 km (format HH:MM:SS)", value="00:50:00")
+if distance_model == "10 km":
+    time_str = st.text_input("Podaj czas na 10 km (format HH:MM:SS)", value="00:45:00")
     time_10km = time_to_seconds(time_str)
-elif distance_choice == "15 km":
-    time_str = st.text_input("Podaj czas na 15 km (format HH:MM:SS)", value="01:25:00")
+elif distance_model == "15 km":
+    time_str = st.text_input("Podaj czas na 15 km (format HH:MM:SS)", value="01:15:00")
     time_15km = time_to_seconds(time_str)
 
 # Sprawdzenie, czy czas jest poprawny
 if time_5km is None and time_10km is None and time_15km is None:
     st.error("Proszę wprowadzić czasy na wybrane dystanse (5 km, 10 km, 15 km)!")
+
+
+# Funkcja do przewidywania czasów na półmaratonie
+def predict_halfmarathon_time(input_data):
+    input_data = input_data.copy()
+    
+    # Dodanie brakujących kolumn, które mogą być wymagane przez model (np. 'Czas_na_5km', 'Czas_na_10km', 'Czas_na_15km')
+    if 'Czas_na_5km' not in input_data.columns:
+        input_data['Czas_na_5km'] = [None]
+    if 'Czas_na_10km' not in input_data.columns:
+        input_data['Czas_na_10km'] = [None]
+    if 'Czas_na_15km' not in input_data.columns:
+        input_data['Czas_na_15km'] = [None]
+    
+    # Wybór odpowiedniego modelu na podstawie argumentu distance_model
+    if distance_model == "5 km":  # Zmiana porównania
+        model_to_use = time_5km_model
+    elif distance_model == "10 km":  # Zmiana porównania
+        model_to_use = time_10km_model
+    elif distance_model == "15 km":  # Zmiana porównania
+        model_to_use = time_15km_model
+    else:
+        raise ValueError("Niepoprawny model dystansu. Wybierz jeden z: '5 km', '10 km', '15 km'")  # Zmiana komunikatu
+
+    # Przewidywanie czasu półmaratonu na podstawie wybranego modelu
+    time_halfmarathon_pred = model_to_use.predict(input_data)
+    input_data['Czas_półmaratonu_pred'] = time_halfmarathon_pred[0]
+    
+    # Obliczanie tempa i prędkości
+    pace_halfmarathon, speed_halfmarathon = calculate_pace_and_speed(time_halfmarathon_pred[0], 21.0975)  # 21.0975 km to długość półmaratonu
+
+    # Dodanie tempa i prędkości do danych
+    input_data['Pace_halfmarathon'] = format_pace(pace_halfmarathon)  # Formatowanie tempa
+    input_data['Speed_halfmarathon'] = round(speed_halfmarathon, 2)  # Zaokrąglanie prędkości do dwóch miejsc po przecinku
+
+    return input_data
 
 
 def plot_age_gender_group_interactive(df, gender, age):
