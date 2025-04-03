@@ -1,95 +1,192 @@
-import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
-from pycaret.regression import load_model, predict_model
+import seaborn as sns
+from pycaret.regression import load_model
+from datetime import datetime
+from sklearn.impute import SimpleImputer
+from sklearn.preprocessing import LabelEncoder
+from datetime import datetime
 
-# Wczytanie wytrenowanego modelu i danych
-model = load_model('final_model')
+# Wczytanie zapisanych modeli
+time_5km_model = load_model('Czas_na_5km_model')
+time_10km_model = load_model('Czas_na_10km_model')
+time_15km_model = load_model('Czas_na_15km_model')
+halfmarathon_time_model = load_model('Czas_półmaratonu_model')
+
+# Wczytanie danych
 df_2023 = pd.read_csv('halfmarathon_wroclaw_2023__final.csv', sep=';')
 df_2024 = pd.read_csv('halfmarathon_wroclaw_2024__final.csv', sep=';')
 
-# Funkcja do konwersji czasu w formacie hh:mm:ss na sekundy
-def time_to_seconds(hours, minutes, seconds):
-    return hours * 3600 + minutes * 60 + seconds
 
-# Funkcja do przewidywania czasu i miejsca
-def predict_time_and_place(age, gender, time_15km):
-    # Przygotowanie danych wejściowych
-    input_data = pd.DataFrame({
-        'Rocznik': [2023 - age],
-        'Płeć': [1 if gender == 'Mężczyzna' else 0],
-        'Czas_na_15km_sekundy': [time_15km],
-        'Czas_na_5km_sekundy': [0],
-        'Czas_na_10km_sekundy': [0],
-        'Czas_na_20km_sekundy': [0],
-        'Tempo_na_5_km_sekundy_na_km': [0],
-        'Tempo_na_10_km_sekundy_na_km': [0],
-        'Tempo_na_15_km_sekundy_na_km': [0],
-        'Tempo_na_20_km_sekundy_na_km': [0],
-        'Tempo_półmaratonu_sekundy': [0]
-    })
+# Usunięcie wierszy z brakującymi danymi w istotnych kolumnach
+df_2023 = df_2023[df_2023['5 km Czas'].notna()]
+df_2023 = df_2023[df_2023['10 km Czas'].notna()]
+df_2023 = df_2023[df_2023['15 km Czas'].notna()]
+df_2023 = df_2023[df_2023['20 km Czas'].notna()]
+df_2023 = df_2023[df_2023['Czas'].notna()]
+
+
+df_2024 = df_2024[df_2024['5 km Czas'].notna()]
+df_2024 = df_2024[df_2024['10 km Czas'].notna()]
+df_2024 = df_2024[df_2024['15 km Czas'].notna()]
+df_2024 = df_2024[df_2024['20 km Czas'].notna()]
+df_2024 = df_2024[df_2024['Czas'].notna()]
+
+
+# Kolumny do usunięcia
+columns_to_drop = ['Miejsce', 'Numer startowy', 'Imię', 'Nazwisko', 'Miasto', 'Kraj', 'Drużyna', 'Płeć Miejsce', 'Kategoria wiekowa Miejsce', 
+                  '5 km Miejsce Open', '10 km Miejsce Open', '15 km Miejsce Open', '20 km Miejsce Open', 'Tempo Stabilność']
+df_2023.drop(columns=columns_to_drop, inplace=True, errors='ignore')
+
+columns_to_drop = ['Miejsce', 'Numer startowy', 'Imię', 'Nazwisko', 'Miasto', 'Kraj', 'Drużyna', 'Płeć Miejsce', 'Kategoria wiekowa Miejsce', 
+                  '5 km Miejsce Open', '10 km Miejsce Open', '15 km Miejsce Open', '20 km Miejsce Open', 'Tempo Stabilność']
+df_2024.drop(columns=columns_to_drop, inplace=True, errors='ignore')
+
+# Zmiana nazw kolumn
+df_2023 = df_2023.rename(columns={
+    "Czas": "Czas_półmaratonu",
+    "5 km Czas": "Czas_na_5km",
+    "10 km Czas": "Czas_na_10km",
+    "15 km Czas": "Czas_na_15km"
+})
+
+df_2024 = df_2024.rename(columns={
+    "Czas": "Czas_półmaratonu",
+    "5 km Czas": "Czas_na_5km",
+    "10 km Czas": "Czas_na_10km",
+    "15 km Czas": "Czas_na_15km"
+})
+
+# Pobranie aktualnego roku
+current_year = datetime.now().year
+# Obliczenie wieku na podstawie roku urodzenia
+df_2023['Wiek'] = current_year - df_2023['Rocznik']
+df_2024['Wiek'] = current_year - df_2024['Rocznik']
+
+
+# Mapowanie płci (0 = K, 1 = M)
+df_2023['Płeć'] = df_2023['Płeć'].map({'K': 0, 'M': 1})
+df_2024['Płeć'] = df_2024['Płeć'].map({'K': 0, 'M': 1})
+
+# Usunięcie niepotrzebnych kolumn
+df_2023.drop(columns=['Czas', 'Tempo', 'Kategoria wiekowa', 'Rocznik', '5 km Czas', '10 km Czas', '15 km Czas', '20 km Czas', '5 km Tempo', '10 km Tempo', '15 km Tempo', '20 km Tempo'], inplace=True, errors='ignore')
+df_2024.drop(columns=['Czas', 'Tempo', '5 km Czas', '10 km Czas', '15 km Czas', '20 km Czas', '5 km Tempo', '10 km Tempo', '15 km Tempo', '20 km Tempo'], inplace=True, errors='ignore')
+
+
+# Definiowanie nowego porządku kolumn
+column_order = ['Płeć', 'Wiek', 'Czas_półmaratonu', 'Czas_na_5km', 'Czas_na_10km', 'Czas_na_15km']
+
+# Uporządkowanie kolumn w df_2023
+df_2023 = df_2024[column_order]
+df_2024 = df_2024[column_order]
+
+# Funkcja do konwersji czasu w formacie 'HH:MM:SS' na sekundy
+def time_to_seconds(time_str):
+    if isinstance(time_str, str):
+        try:
+            h, m, s = map(int, time_str.split(':'))
+            return h * 3600 + m * 60 + s
+        except ValueError:
+            return None  # Jeśli nie uda się przekonwertować, zwróć None
+    return None  # W przypadku, gdy wartość nie jest stringiem
+
+# Zastosowanie funkcji do konwersji kolumn
+df_2023['Czas_na_5km'] = df_2023['Czas_na_5km'].apply(time_to_seconds)
+df_2023['Czas_na_10km'] = df_2023['Czas_na_10km'].apply(time_to_seconds)
+df_2023['Czas_na_15km'] = df_2023['Czas_na_15km'].apply(time_to_seconds)
+df_2023['Czas_półmaratonu'] = df_2023['Czas_półmaratonu'].apply(time_to_seconds)
+
+df_2024['Czas_na_5km'] = df_2024['Czas_na_5km'].apply(time_to_seconds)
+df_2024['Czas_na_10km'] = df_2024['Czas_na_10km'].apply(time_to_seconds)
+df_2024['Czas_na_15km'] = df_2024['Czas_na_15km'].apply(time_to_seconds)
+df_2024['Czas_półmaratonu'] = df_2024['Czas_półmaratonu'].apply(time_to_seconds)
+
+# Imputer dla danych numerycznych
+imputer = SimpleImputer(strategy='mean')
+
+# Zakodowanie danych tekstowych (np. płeć i kategoria wiekowa)
+label_encoder = LabelEncoder()
+
+# Zakodowanie płci
+df_2023['Płeć'] = label_encoder.fit_transform(df_2023['Płeć'])
+df_2024['Płeć'] = label_encoder.transform(df_2024['Płeć'])
+
+df_2023
+
+# Uzupełnianie brakujących danych (NaN) tylko w kolumnach numerycznych
+numeric_columns_2023 = df_2023.select_dtypes(include=['float64', 'int64']).columns
+df_2023[numeric_columns_2023] = imputer.fit_transform(df_2023[numeric_columns_2023])
+
+numeric_columns_2024 = df_2024.select_dtypes(include=['float64', 'int64']).columns
+df_2024[numeric_columns_2024] = imputer.transform(df_2024[numeric_columns_2024])
+
+# Funkcja do obliczania tempa i prędkości
+def calculate_pace_and_speed(time_seconds, distance_km):
+    if time_seconds is None or distance_km <= 0:
+        return None, None
+    pace = time_seconds / distance_km / 60  # tempo w minutach na km
+    speed = distance_km / (time_seconds / 3600)  # prędkość w km/h
+    return pace, speed
+
+# Funkcja do obliczania innych czasów na podstawie już dostępnych danych
+def calculate_other_times(row):
+    # Sprawdzamy, czy czasy są w odpowiednim formacie (czy są liczbami w sekundach)
+    czas_5km = row['Czas_na_5km']
+    czas_10km = row['Czas_na_10km']
     
-    # Wyświetlenie danych wejściowych
-    print("Dane wejściowe do modelu:")
-    print(input_data)
+    # Jeśli wartości są w formacie str, konwertujemy je na liczby
+    if isinstance(czas_5km, str):
+        czas_5km = time_to_seconds(czas_5km)  # Konwertowanie z formatu HH:MM:SS na sekundy
+    if isinstance(czas_10km, str):
+        czas_10km = time_to_seconds(czas_10km)  # Konwertowanie z formatu HH:MM:SS na sekundy
 
-    # Upewnijmy się, że kolumny są prawidłowe
-    required_columns = ['Rocznik', 'Płeć', 'Czas_na_15km_sekundy']
-    missing_columns = [col for col in required_columns if col not in input_data.columns]
+    # Obliczamy czas na 15 km i półmaraton, zakładając liniowy wzrost czasów
+    if pd.notna(czas_5km) and pd.notna(czas_10km):
+        czas_15km = czas_10km + (czas_10km - czas_5km)  # Przybliżenie na podstawie różnicy między czasami
+        czas_polmaratonu = czas_10km * 2  # Przybliżenie na podstawie podwojenia czasu na 10 km
+        return czas_15km, czas_polmaratonu
+    else:
+        return pd.NA, pd.NA  # Jeśli brakuje danych, zwróć wartość NA
+
+# Funkcja do przewidywania czasów, tempa i prędkości
+# Funkcja do przewidywania czasów, tempa i prędkości
+def predict_times_and_metrics(df):
+    # Kolumny wymagane do predykcji, które były używane w czasie trenowania modelu
+    required_columns = ['Płeć', 'Wiek', 'Czas_na_10km', 'Czas_na_15km', 'Czas_półmaratonu', 'Czas_na_5km']
+    
+    # Sprawdzenie, czy wszystkie wymagane kolumny są obecne w danych
+    missing_columns = [col for col in required_columns if col not in df.columns]
     if missing_columns:
-        raise KeyError(f"Brakujące kolumny: {', '.join(missing_columns)}")
-
-    # Przewidywanie z modelem
-    prediction = predict_model(model, data=input_data)
+        raise ValueError(f"Brakujące kolumny: {missing_columns}")
     
-    # Sprawdzenie, jakie kolumny są w wynikach modelu
-    print("Kolumny w wyniku przewidywania:")
-    print(prediction.columns)
-
-    if 'Label' not in prediction.columns:
-        raise KeyError("Kolumna 'Label' nie została wygenerowana. Sprawdź dane wejściowe i model.")
     
-    predicted_time = prediction['Label'][0]
+    # Przekształcanie tylko kolumn numerycznych
+    numeric_columns = df.select_dtypes(include=['float64', 'int64']).columns
+    df[numeric_columns] = imputer.transform(df[numeric_columns])  # Użycie imputera
     
-    # Obliczenie miejsca na podstawie danych z 2023 i 2024
-    df_combined = pd.concat([df_2023, df_2024], ignore_index=True)
-    df_combined['Czas półmaratonu (sekundy)'] = df_combined['Czas półmaratonu (sekundy)'].apply(pd.to_numeric, errors='coerce')
-    place = (df_combined['Czas półmaratonu (sekundy)'] < predicted_time).sum() + 1
+    # Dokonanie predykcji
+    df['Czas_na_5km_pred'] = time_5km_model.predict(df)
+    df['Czas_na_10km_pred'] = time_10km_model.predict(df)
+    df['Czas_na_15km_pred'] = time_15km_model.predict(df)
+    df['Czas_półmaratonu_pred'] = halfmarathon_time_model.predict(df)
+
+    # Obliczanie tempa i prędkości
+    df['Pace_5km'], df['Speed_5km'] = zip(*df['Czas_na_5km_pred'].apply(lambda x: calculate_pace_and_speed(x, 5)))
+    df['Pace_10km'], df['Speed_10km'] = zip(*df['Czas_na_10km_pred'].apply(lambda x: calculate_pace_and_speed(x, 10)))
+    df['Pace_15km'], df['Speed_15km'] = zip(*df['Czas_na_15km_pred'].apply(lambda x: calculate_pace_and_speed(x, 15)))
+    df['Pace_halfmarathon'], df['Speed_halfmarathon'] = zip(*df['Czas_półmaratonu_pred'].apply(lambda x: calculate_pace_and_speed(x, 21.097)))
     
-    return predicted_time, place
+    return df
 
 
-# Interfejs użytkownika
-st.title("Przewidywanie czasu i miejsca w półmaratonie")
-st.write("Wprowadź swoje dane, aby przewidzieć czas ukończenia półmaratonu oraz miejsce w wynikach.")
+# Połączenie danych z 2023 i 2024
+df_combined = pd.concat([df_2023, df_2024], ignore_index=True)
 
-# Formularz wejściowy
-age = st.number_input("Wiek", min_value=10, max_value=100, value=30)
-gender = st.radio("Płeć", options=["Mężczyzna", "Kobieta"])
+df_combined
 
-st.write("Podaj czas na 15 km:")
-hours = st.selectbox("Godziny", options=list(range(0, 6)), index=1)
-minutes = st.selectbox("Minuty", options=list(range(0, 60)), index=30)
-seconds = st.selectbox("Sekundy", options=list(range(0, 60)), index=0)
+# Przewidywanie i obliczanie czasów i metryk
+df_combined = predict_times_and_metrics(df_combined)
 
-if st.button("Przewiduj"):
-    time_15km = time_to_seconds(hours, minutes, seconds)
-    try:
-        predicted_time, place = predict_time_and_place(age, gender, time_15km)
-        st.write(f"Przewidywany czas ukończenia półmaratonu: {predicted_time // 3600}h {(predicted_time % 3600) // 60}m {predicted_time % 60}s")
-        st.write(f"Przewidywane miejsce: {place}")
+# Przykład jak wyświetlić wyniki
+print(df_combined[['Czas_na_5km_pred', 'Czas_na_10km_pred', 'Czas_na_15km_pred', 'Czas_półmaratonu_pred']])
 
-        # Filtr danych dla wykresu
-        df_filtered = df_2023[(df_2023['Rocznik'] == 2023 - age) & (df_2023['Płeć'] == (1 if gender == 'Mężczyzna' else 0))]
-        plt.figure(figsize=(10, 6))
-        plt.hist(df_filtered['Czas półmaratonu (sekundy)'], bins=20, color='blue', alpha=0.7)
-        plt.axvline(predicted_time, color='red', linestyle='--', label='Twój przewidywany czas')
-        plt.title("Rozkład czasów w Twojej kategorii wiekowej i płci")
-        plt.xlabel("Czas (sekundy)")
-        plt.ylabel("Liczba uczestników")
-        plt.legend()
-        st.pyplot(plt)
-    except KeyError as e:
-        st.error(f"Błąd: {e}")
-    except Exception as e:
-        st.error(f"Nieoczekiwany błąd: {e}")
