@@ -18,6 +18,7 @@ st.set_page_config(layout="wide")
 time_model = load_model('Czas_półmaratonu_model')
 
 
+
 # Wczytanie danych
 df_2023 = pd.read_csv('halfmarathon_wroclaw_2023__final.csv', sep=';')
 df_2024 = pd.read_csv('halfmarathon_wroclaw_2024__final.csv', sep=';')
@@ -325,9 +326,9 @@ if st.button("Przewiduj wyniki"):
         
         # Wyświetlanie wyników przewidywania
         st.write("Przewidywane wyniki:")
-        st.write(f"Czas półmaratonu: {str(timedelta(seconds=int(prediction_results['Czas_półmaratonu_pred'].iloc[0])))}")
-        st.write(f"Tempo półmaratonu: {prediction_results['Pace_halfmarathon'].iloc[0]} minut/km")
-        st.write(f"Prędkość półmaratonu: {prediction_results['Speed_halfmarathon'].iloc[0]} km/h")
+        st.write(f"Czas: {str(timedelta(seconds=int(prediction_results['Czas_półmaratonu_pred'].iloc[0])))}")
+        st.write(f"Tempo: {prediction_results['Pace_halfmarathon'].iloc[0]} minut/km")
+        st.write(f"Prędkość: {prediction_results['Speed_halfmarathon'].iloc[0]} km/h")
     
     elif time_15km is not None:  # Sprawdzenie, czy czas na 15 km jest wprowadzony
         input_data = pd.DataFrame({
