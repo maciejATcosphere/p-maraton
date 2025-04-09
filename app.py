@@ -16,8 +16,8 @@ st.set_page_config(layout="wide")
 
 # Wczytanie zapisanego modelu (model przewidujący czas półmaratonu)
 time_5km_model = load_model('Czas_na_5km_model')
-# time_10km_model = load_model('Czas_na_10km_model')
-# time_15km_model = load_model('Czas_na_15km_model')
+time_10km_model = load_model('Czas_na_10km_model')
+time_15km_model = load_model('Czas_na_15km_model')
 
 # Wczytanie danych
 df_2023 = pd.read_csv('halfmarathon_wroclaw_2023__final.csv', sep=';')
@@ -156,10 +156,10 @@ def predict_halfmarathon_time(input_data, distance_model="5km"):
     # Wybór odpowiedniego modelu na podstawie argumentu distance_model
     if distance_model == "5km":
         model_to_use = time_5km_model
-    # elif distance_model == "10km":
-    #     model_to_use = time_10km_model
-    # elif distance_model == "15km":
-    #     model_to_use = time_15km_model
+    elif distance_model == "10km":
+        model_to_use = time_10km_model
+    elif distance_model == "15km":
+        model_to_use = time_15km_model
     else:
         raise ValueError("Niepoprawny model dystansu. Wybierz jeden z: '5km', '10km', '15km'")
 
@@ -177,8 +177,6 @@ def predict_halfmarathon_time(input_data, distance_model="5km"):
     return input_data
 
 
-
-
 # Interfejs użytkownika
 st.title("Przewidywanie czasu półmaratonu")
 st.write("Wprowadź swoje dane, aby przewidzieć czas ukończenia półmaratonu.")
@@ -191,13 +189,14 @@ gender = st.radio("Płeć", options=["Mężczyzna", "Kobieta"])
 distance_choice = st.selectbox("Wybierz dystans:", ["5 km", "10 km", "15 km"])
 
 # Zmienne do przechowywania danych czasowych
+time_5km = None
 time_10km = None
 time_15km = None
 
 # Dostosowanie wejścia w zależności od wybranego dystansu
 if distance_choice == "5 km":
     time_str = st.text_input("Podaj czas na 5 km (format HH:MM:SS)", value="00:25:00")
-    time_10km = time_to_seconds(time_str)
+    time_5km = time_to_seconds(time_str)
 if distance_choice == "10 km":
     time_str = st.text_input("Podaj czas na 10 km (format HH:MM:SS)", value="00:50:00")
     time_10km = time_to_seconds(time_str)
@@ -206,8 +205,9 @@ elif distance_choice == "15 km":
     time_15km = time_to_seconds(time_str)
 
 # Sprawdzenie, czy czas jest poprawny
-if time_10km is None and time_15km is None:
-    st.error("Proszę wprowadzić czas na wybrany dystans!")
+if time_5km is None and time_10km is None and time_15km is None:
+    st.error("Proszę wprowadzić czasy na wybrane dystanse (5 km, 10 km, 15 km)!")
+
 
 def plot_age_gender_group_interactive(df, gender, age):
     # Obliczenie przedziału wiekowego
@@ -325,40 +325,77 @@ def plot_age_gender_time_range_barplot(df, gender, age):
 
 # Dodanie przycisku uruchamiającego przewidywanie
 if st.button("Przewiduj wyniki"):
-       
-    if time_10km is not None:  # Sprawdzenie, czy czas na 10 km jest wprowadzony
+
+    # Lista do przechowywania wyników
+    prediction_results = []
+
+    # Sprawdzenie, czy czas na 5 km jest wprowadzony
+    if time_5km is not None:
         input_data = pd.DataFrame({
             'Płeć': [1 if gender == "Mężczyzna" else 0],  # Zakodowanie płci
             'Wiek': [age],
             'Czas_półmaratonu': [None],  # Brak rzeczywistego czasu półmaratonu
+            'Czas_na_5km': [time_5km],
+            'Czas_na_10km': [None],
+            'Czas_na_15km': [None],
+        })
+        # Przewidywanie czasów
+        prediction_5km = predict_halfmarathon_time(input_data)
+        prediction_results.append({
+            'Dystans': '5 km',
+            'Czas': str(timedelta(seconds=int(prediction_5km['Czas_półmaratonu_pred'].iloc[0]))),
+            'Tempo': prediction_5km['Pace_halfmarathon'].iloc[0],
+            'Prędkość': prediction_5km['Speed_halfmarathon'].iloc[0]
+        })
+
+    # Sprawdzenie, czy czas na 10 km jest wprowadzony
+    if time_10km is not None:
+        input_data = pd.DataFrame({
+            'Płeć': [1 if gender == "Mężczyzna" else 0],  # Zakodowanie płci
+            'Wiek': [age],
+            'Czas_na_5km': [None],
             'Czas_na_10km': [time_10km],
             'Czas_na_15km': [None],
         })
         # Przewidywanie czasów
-        prediction_results = predict_halfmarathon_time(input_data)
-        
-        # Wyświetlanie wyników przewidywania
-        st.write("Przewidywane wyniki:")
-        st.write(f"Czas: {str(timedelta(seconds=int(prediction_results['Czas_półmaratonu_pred'].iloc[0])))}")
-        st.write(f"Tempo: {prediction_results['Pace_halfmarathon'].iloc[0]} minut/km")
-        st.write(f"Prędkość: {prediction_results['Speed_halfmarathon'].iloc[0]} km/h")
-    
-    elif time_15km is not None:  # Sprawdzenie, czy czas na 15 km jest wprowadzony
+        prediction_10km = predict_halfmarathon_time(input_data)
+        prediction_results.append({
+            'Dystans': '10 km',
+            'Czas': str(timedelta(seconds=int(prediction_10km['Czas_półmaratonu_pred'].iloc[0]))),
+            'Tempo': prediction_10km['Pace_halfmarathon'].iloc[0],
+            'Prędkość': prediction_10km['Speed_halfmarathon'].iloc[0]
+        })
+
+    # Sprawdzenie, czy czas na 15 km jest wprowadzony
+    if time_15km is not None:
         input_data = pd.DataFrame({
             'Płeć': [1 if gender == "Mężczyzna" else 0],  # Zakodowanie płci
             'Wiek': [age],
             'Czas_półmaratonu': [None],  # Brak rzeczywistego czasu półmaratonu
-            'Czas_na_15km': [time_15km],
+            'Czas_na_5km': [None],
             'Czas_na_10km': [None],
+            'Czas_na_15km': [time_15km],
         })
         # Przewidywanie czasów
-        prediction_results = predict_halfmarathon_time(input_data)
-        
-        # Wyświetlanie wyników przewidywania
+        prediction_15km = predict_halfmarathon_time(input_data)
+        prediction_results.append({
+            'Dystans': '15 km',
+            'Czas': str(timedelta(seconds=int(prediction_15km['Czas_półmaratonu_pred'].iloc[0]))),
+            'Tempo': prediction_15km['Pace_halfmarathon'].iloc[0],
+            'Prędkość': prediction_15km['Speed_halfmarathon'].iloc[0]
+        })
+
+    # Wyświetlanie wyników
+    if prediction_results:
         st.write("Przewidywane wyniki:")
-        st.write(f"Czas: {str(timedelta(seconds=int(prediction_results['Czas_półmaratonu_pred'].iloc[0])))}")
-        st.write(f"Tempo: {prediction_results['Pace_halfmarathon'].iloc[0]} minut/km")
-        st.write(f"Prędkość: {prediction_results['Speed_halfmarathon'].iloc[0]} km/h")
+        for result in prediction_results:
+            st.write(f"Dystans: {result['Dystans']}")
+            st.write(f"Czas: {result['Czas']}")
+            st.write(f"Tempo: {result['Tempo']} minut/km")
+            st.write(f"Prędkość: {result['Prędkość']} km/h")
+    else:
+        st.error("Proszę wprowadzić przynajmniej jeden czas (5 km, 10 km, 15 km).")
+
     
     # Tworzenie dwóch kolumn na wykresy
     col1, col2 = st.columns(2)
