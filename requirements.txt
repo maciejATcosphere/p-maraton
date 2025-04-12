@@ -2,4 +2,4 @@ langfuse
 streamlit
 python-dotenv
 plotly
-pycaret
+pycaret[full]
