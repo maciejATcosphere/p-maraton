@@ -1,3 +1,3 @@
 logs.log
 catboost_info
-app copy.py
+.env
