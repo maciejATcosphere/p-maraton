@@ -1,3 +1,4 @@
 langfuse
 streamlit
 python-dotenv
+plotly
